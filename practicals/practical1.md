@@ -14,6 +14,16 @@ This practical supports the following module learning outcomes:
 
 -----
 
+## **Submission Instructions**
+
+- You must maintain your own public GitHub repository for all practical work and report submissions related to this module.
+- All code, configuration files, and documentation for each practical should be committed to your repository.
+- For each practical, include a clear README describing your approach, steps taken, and any challenges encountered.
+- When submitting your work, provide the link to your public GitHub repository to your tutor as instructed.
+- Ensure your repository is well-organized and up-to-date before submission.
+
+-----
+
 ## **Part 1: Foundational Development Environment Setup (Duration: 1 Hour)**
 
 **Objective:** This part ensures your machine is ready for microservice development by installing and configuring Go, Protocol Buffers, and Docker.
