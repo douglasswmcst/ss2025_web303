@@ -56,6 +56,10 @@ Protocol Buffers (Protobuf) is a language-agnostic data serialization format we 
     ```bash
     export PATH="$PATH:$(go env GOPATH)/bin"
     ```
+4. **Installation Using Brew (Optional)**
+    ```bash
+    brew install protobuf
+    ```
 
 ### **1.3: Installing and Verifying Docker**
 
@@ -248,10 +252,10 @@ Docker allows us to package our services into portable containers.
 1.  **Create Dockerfile for `time-service` (`time-service/Dockerfile`):**
 
     ```dockerfile
-    FROM golang:1.22-alpine AS builder
+    FROM golang:1.24.2-alpine AS builder
     WORKDIR /app
-    COPY go.mod ./
-    COPY go.sum ./
+    COPY time-service/go.mod ./
+    COPY time-service/go.sum ./
     RUN go mod download
     COPY . .
     RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./time-service/main.go
@@ -266,10 +270,10 @@ Docker allows us to package our services into portable containers.
 2.  **Create Dockerfile for `greeter-service` (`greeter-service/Dockerfile`):**
 
     ```dockerfile
-    FROM golang:1.22-alpine AS builder
+    FROM golang:1.24.2-alpine AS builder
     WORKDIR /app
-    COPY go.mod ./
-    COPY go.sum ./
+    COPY greeter-service/go.mod ./
+    COPY greeter-service/go.sum ./
     RUN go mod download
     COPY . .
     RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./greeter-service/main.go
