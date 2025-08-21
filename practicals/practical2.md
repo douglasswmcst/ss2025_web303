@@ -23,6 +23,13 @@ This practical supports the following module learning outcomes:
 - When submitting your work, provide the link to your public GitHub repository to your tutor as instructed.
 - Ensure your repository is well-organized and up-to-date before submission.
 
+Details:
+1. Submit your full working code to a seperate repo and include the repo url link in your README.md
+2. Include the following screenshots in your submission
+   1. Screenshot of the Consul UI showing both services registered and healthy.
+   2. Screenshot of postman/terminal cURL making both requests
+   3. Screenshot of the API-GATEWAY terminal displaying that the request has been received successfully and routed to the relevant services
+
 ---
 
 ### The Architecture
