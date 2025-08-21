@@ -24,11 +24,19 @@ This practical supports the following module learning outcomes:
 - Ensure your repository is well-organized and up-to-date before submission.
 
 Details:
+
 1. Submit your full working code to a seperate repo and include the repo url link in your README.md
 2. Include the following screenshots in your submission
+
    1. Screenshot of the Consul UI showing both services registered and healthy.
+
+   ![Consul UI](../assets/consul.png)
+
    2. Screenshot of postman/terminal cURL making both requests
+
    3. Screenshot of the API-GATEWAY terminal displaying that the request has been received successfully and routed to the relevant services
+
+   ![API Gateway](../assets/gateway.png)
 
 ---
 
@@ -658,7 +666,7 @@ You will need **four separate terminal windows** for this part: one for Consul, 
     # Expected Response:
     # Response from 'users-service': Details for user 123
 
-    # Actual Response 
+    # Actual Response
     # no healthy instances of service 'users-service' found in Consul
 
     # Test the products service
@@ -671,18 +679,20 @@ You will need **four separate terminal windows** for this part: one for Consul, 
     # Response from 'products-service': Details for product abc
     ```
 
-   The current issue right now, is that the services have registered to a Consul Instance in a docker environment while the web services are running on the host machine. This means that the gateway cannot reach the services using the addresses registered in Consul.
+The current issue right now, is that the services have registered to a Consul Instance in a docker environment while the web services are running on the host machine. This means that the gateway cannot reach the services using the addresses registered in Consul.
 
-   ### Resolution
+### Resolution
 
-   #### Option 1
+#### Option 1
 
-   1. Install Consul Locally 
-   2. Navigate to the following URL https://developer.hashicorp.com/consul/install
-   3. After successful installation run the following command to initialise your Consul Instance on host machine on a new terminal window. ***TERMINATE YOUR CURRENT CONSUL INSTANCE ON DOCKER.***
+1.  Install Consul Locally
+2.  Navigate to the following URL https://developer.hashicorp.com/consul/install
+3.  After successful installation run the following command to initialise your Consul Instance on host machine on a new terminal window. **_TERMINATE YOUR CURRENT CONSUL INSTANCE ON DOCKER._**
+
 ```
     consul agent -dev
 ```
+
 4. Next, navigate to http://localhost:8500/ui to verify that your consul instance is up and running.
 
 #### Option 2
