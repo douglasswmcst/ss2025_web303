@@ -561,8 +561,8 @@ The gateway is the public entry point. Its job is to receive a request, determin
 
     	// Step 3: Rewrite the request URL to be sent to the downstream service.
     	// We strip `/api/<service-name>` from the original path.
-    	// e.g., /api/users/123 becomes /123
-    	r.URL.Path = "/" + strings.Join(pathSegments[2:], "/")
+    	// e.g., /api/users/123 becomes /users/123
+    	r.URL.Path = "/" + strings.Join(pathSegments[1:], "/")
     	log.Printf("Forwarding request to: %s%s", serviceURL, r.URL.Path)
 
     	// Step 4: Forward the request.
@@ -651,14 +651,38 @@ You will need **four separate terminal windows** for this part: one for Consul, 
     # Expected Response:
     # Response from 'users-service': Details for user 123
 
+    # Actual Response 
+    # no healthy instances of service 'users-service' found in Consul
+
     # Test the products service
     curl http://localhost:8080/api/products/abc
 
     # Expected Response:
     # Response from 'products-service': Details for product abc
+
+    # Actual Response:
+    # Response from 'products-service': Details for product abc
     ```
 
-    Success\! The gateway correctly routed your requests to the appropriate backend services by discovering their locations from Consul.
+   The current issue right now, is that the services have registered to a Consul Instance in a docker environment while the web services are running on the host machine. This means that the gateway cannot reach the services using the addresses registered in Consul.
+
+   ### Resolution
+
+   #### Option 1
+
+   1. Install Consul Locally 
+   2. Navigate to the following URL https://developer.hashicorp.com/consul/install
+   3. After successful installation run the following command to initialise your Consul Instance on host machine on a new terminal window. ***TERMINATE YOUR CURRENT CONSUL INSTANCE ON DOCKER.***
+```
+    consul agent -dev
+```
+4. Next, navigate to http://localhost:8500/ui to verify that your consul instance is up and running.
+
+#### Option 2
+
+1. Containerise all 3 services; api-gateway,user-service,product-service
+2. Create a Dockerfile for each of your go services in their respective folders
+3. Create a Docker Compose file at the root of your project to define and run all services
 
 ---
 
