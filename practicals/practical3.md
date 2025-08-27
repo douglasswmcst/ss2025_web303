@@ -28,12 +28,13 @@ This practical will guide you through building the following system:
 -----
 ### **Submission Instructions & Requirements**
 
-1. You are to fix the ```api-gateway/main.go``` and ensure that the http service is properly engaging the Consul Service to discover the relevant services with respect to the endpoint.
-Present situation the api-gateway is directly calling the user/product services directly via defining it's ports.
+1. You are to FIX the ```api-gateway/main.go``` and ensure that the http service is properly engaging the Consul Service to discover the relevant services with respect to the endpoint.
 
-2. Upload your files to a seperate repository and submit your work to your submission repository as usual.
+2. Present situation the api-gateway is directly calling the user/product services directly via defining it's ports. You should realise that the composite endpoint for aggregating the user and product services are not done properly. You are to FIX this as well. Both services are currently not communicating with each other.
 
-3. include the screenshots of your sample requests either via cUrl/Postman.
+3. Upload your files to a seperate repository and submit your work to your submission repository as usual.
+
+4. include the screenshots of your sample requests either via cUrl/Postman.
 -----
 ### **Part 1: Prerequisites and Project Setup**
 
