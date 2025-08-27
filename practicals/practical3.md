@@ -26,7 +26,15 @@ This practical will guide you through building the following system:
   * **Databases**: Each microservice will have its own PostgreSQL database, managed by Docker, ensuring complete data isolation.
 
 -----
+### **Submission Instructions & Requirements**
 
+1. You are to fix the ```api-gateway/main.go``` and ensure that the http service is properly engaging the Consul Service to discover the relevant services with respect to the endpoint.
+Present situation the api-gateway is directly calling the user/product services directly via defining it's ports.
+
+2. Upload your files to a seperate repository and submit your work to your submission repository as usual.
+
+3. include the screenshots of your sample requests either via cUrl/Postman.
+-----
 ### **Part 1: Prerequisites and Project Setup**
 
 Before we start, ensure you have **Go (1.18+)** and **Docker** installed on your system.
@@ -148,8 +156,6 @@ We will use a `docker-compose.yml` file to define and manage our entire applicat
 **`docker-compose.yml`:**
 
 ```yaml
-version: '3.8'
-
 services:
   consul:
     image: hashicorp/consul:latest
