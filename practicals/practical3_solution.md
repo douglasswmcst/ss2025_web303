@@ -47,12 +47,6 @@ protoc --go_out=. --go_opt=module=github.com/yourorg/proto-shared
 - Generate code during Docker build process
 - Use multi-stage builds to optimize final image size
 
-**Option 3: CI/CD Pipeline Integration**
-
-- Generate proto files in CI/CD pipeline
-- Store generated files in artifact repository
-- Services pull generated code during build
-
 #### **Issue 2: API Gateway Not Using Consul Service Discovery**
 
 **Problem**: The original API Gateway directly connects to services using hardcoded hostnames (`users-service:50051`).
@@ -109,62 +103,42 @@ practical-three/
     └── generate-proto.sh
 ```
 
-**For Production Systems (Recommended):**
+**Alternative Structure for Future Expansion:**
 
 ```
-microservices-platform/
-├── proto/                          # Centralized API definitions
-│   ├── go.mod                      # Proto module
-│   ├── users/
-│   │   └── v1/
-│   │       ├── users.proto
-│   │       └── users.pb.go
-│   ├── products/
-│   │   └── v1/
-│   │       ├── products.proto
-│   │       └── products.pb.go
-│   └── common/
-│       └── v1/
-│           └── common.proto
+practical-three-extended/
+├── proto/                          # API definitions
+│   ├── users.proto
+│   ├── products.proto
+│   ├── purchases.proto
+│   └── gen/                        # Generated Go files
 ├── services/
 │   ├── users-service/
-│   │   ├── go.mod                  # References proto module
-│   │   ├── cmd/
-│   │   │   └── server/
-│   │   │       └── main.go
-│   │   ├── internal/
-│   │   │   ├── config/
-│   │   │   ├── handler/
-│   │   │   ├── repository/
-│   │   │   └── service/
-│   │   ├── pkg/
+│   │   ├── main.go
+│   │   ├── go.mod
 │   │   ├── Dockerfile
-│   │   └── kubernetes/
-│   └── products-service/
+│   │   └── proto/                  # Build context copy
+│   ├── products-service/
+│   │   └── [similar structure]
+│   └── purchase-service/
 │       └── [similar structure]
 ├── api-gateway/
+│   ├── main.go
 │   ├── go.mod
-│   ├── cmd/
-│   ├── internal/
 │   ├── Dockerfile
-│   └── kubernetes/
-├── infrastructure/
-│   ├── terraform/
-│   ├── helm/
-│   └── docker-compose/
-└── ci/
-    ├── Jenkinsfile
-    ├── .github/
-    └── scripts/
+│   └── proto/                      # Build context copy
+├── docker-compose.yml
+└── scripts/
+    ├── build.sh
+    └── generate-proto.sh
 ```
 
-**Key Production Improvements**:
+**Key Development Benefits**:
 
-1. **Versioned API Contracts**: Proto files organized by service and version
-2. **Shared Proto Module**: Single source of truth for API definitions
-3. **Clean Architecture**: Separation of concerns with `cmd`, `internal`, and `pkg` directories
-4. **Infrastructure as Code**: Terraform for cloud resources, Helm for Kubernetes
-5. **CI/CD Integration**: Automated proto generation and deployment pipelines
+1. **Simple Structure**: Easy to understand and navigate
+2. **Docker-First Approach**: All services containerized for consistency
+3. **Local Development**: Everything runs locally with Docker Compose
+4. **Proto File Management**: Clear separation between source and generated files
 
 ---
 
@@ -236,161 +210,6 @@ message GetUserRequest {
 
 message UserResponse {
   User user = 1;
-}
-```
-
-**Production-Ready Proto Files (Fixed):**
-
-**`proto/users/v1/users.proto`:**
-
-```protobuf
-syntax = "proto3";
-
-// Production-ready package and import configuration
-option go_package = "github.com/yourorg/proto-shared/users/v1;usersv1";
-
-package users.v1;
-
-import "google/protobuf/timestamp.proto";
-import "google/protobuf/field_mask.proto";
-import "common/v1/common.proto";
-
-service UserService {
-  // Create a new user with validation
-  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
-
-  // Get user by ID with optional field selection
-  rpc GetUser(GetUserRequest) returns (GetUserResponse);
-
-  // List users with pagination and filtering
-  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
-
-  // Update user with field mask for partial updates
-  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
-
-  // Soft delete user
-  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
-}
-
-message User {
-  string id = 1;
-  string name = 2;
-  string email = 3;
-  google.protobuf.Timestamp created_at = 4;
-  google.protobuf.Timestamp updated_at = 5;
-  UserStatus status = 6;
-  map<string, string> metadata = 7;
-}
-
-enum UserStatus {
-  USER_STATUS_UNSPECIFIED = 0;
-  USER_STATUS_ACTIVE = 1;
-  USER_STATUS_INACTIVE = 2;
-  USER_STATUS_SUSPENDED = 3;
-}
-
-message CreateUserRequest {
-  string name = 1 [(common.v1.field_validation) = {
-    required: true,
-    min_length: 2,
-    max_length: 100
-  }];
-  string email = 2 [(common.v1.field_validation) = {
-    required: true,
-    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-  }];
-}
-
-message CreateUserResponse {
-  User user = 1;
-}
-
-message GetUserRequest {
-  string id = 1;
-  google.protobuf.FieldMask field_mask = 2;
-}
-
-message GetUserResponse {
-  User user = 1;
-}
-
-message ListUsersRequest {
-  int32 page_size = 1;
-  string page_token = 2;
-  string filter = 3; // e.g., "status=ACTIVE AND created_at>2023-01-01"
-  string order_by = 4; // e.g., "created_at desc"
-}
-
-message ListUsersResponse {
-  repeated User users = 1;
-  string next_page_token = 2;
-  int32 total_count = 3;
-}
-
-message UpdateUserRequest {
-  User user = 1;
-  google.protobuf.FieldMask update_mask = 2;
-}
-
-message UpdateUserResponse {
-  User user = 1;
-}
-
-message DeleteUserRequest {
-  string id = 1;
-}
-
-message DeleteUserResponse {
-  bool success = 1;
-}
-```
-
-**`proto/common/v1/common.proto`:**
-
-```protobuf
-syntax = "proto3";
-
-option go_package = "github.com/yourorg/proto-shared/common/v1;commonv1";
-
-package common.v1;
-
-import "google/protobuf/descriptor.proto";
-
-// Custom field validation annotations
-extend google.protobuf.FieldOptions {
-  FieldValidation field_validation = 50001;
-}
-
-message FieldValidation {
-  bool required = 1;
-  int32 min_length = 2;
-  int32 max_length = 3;
-  string pattern = 4;
-  double min_value = 5;
-  double max_value = 6;
-}
-
-// Standard error response
-message Error {
-  string code = 1;
-  string message = 2;
-  repeated ErrorDetail details = 3;
-}
-
-message ErrorDetail {
-  string field = 1;
-  string description = 2;
-}
-
-// Standard pagination
-message PaginationRequest {
-  int32 page_size = 1;
-  string page_token = 2;
-}
-
-message PaginationResponse {
-  string next_page_token = 1;
-  int32 total_count = 2;
 }
 ```
 
@@ -1273,7 +1092,7 @@ require (
 
 **`scripts/build.sh`:**
 
-```bash
+````bash
 #!/bin/bash
 set -e
 
@@ -1377,151 +1196,118 @@ main() {
     generate_proto_files
     distribute_proto_files
     cleanup
+**`scripts/build.sh`:**
+
+```bash
+#!/bin/bash
+set -e
+
+echo "🚀 Building microservices development environment..."
+
+# Function to check if required tools are installed
+check_dependencies() {
+    echo "📋 Checking dependencies..."
+
+    command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed."; exit 1; }
+    command -v docker-compose >/dev/null 2>&1 || { echo "❌ Docker Compose is required but not installed."; exit 1; }
+    command -v protoc >/dev/null 2>&1 || { echo "❌ protoc is required but not installed."; exit 1; }
+
+    echo "✅ All dependencies found"
+}
+
+# Generate proto files
+generate_proto_files() {
+    echo "🔧 Generating proto files..."
+
+    # Clean previous generations
+    rm -rf proto/gen
+    mkdir -p proto/gen
+
+    # Generate Go code
+    protoc --go_out=./proto/gen --go_opt=paths=source_relative \
+           --go-grpc_out=./proto/gen --go-grpc_opt=paths=source_relative \
+           proto/*.proto
+
+    echo "✅ Proto files generated"
+}
+
+# Copy proto files to each service for Docker build context
+distribute_proto_files() {
+    echo "📦 Distributing proto files to services..."
+
+    services=("api-gateway" "services/users-service" "services/products-service")
+
+    for service in "${services[@]}"; do
+        echo "  📂 Copying to $service..."
+        mkdir -p "$service/proto/gen"
+        cp -r proto/* "$service/proto/"
+    done
+
+    echo "✅ Proto files distributed"
+}
+
+# Clean up old containers and images
+cleanup() {
+    echo "🧹 Cleaning up old containers..."
+    docker-compose down --remove-orphans 2>/dev/null || true
+    docker system prune -f --volumes 2>/dev/null || true
+}
+
+# Build and start services
+build_and_start() {
+    echo "🏗️  Building and starting services..."
+
+    # Build with no cache to ensure fresh build
+    docker-compose build --no-cache
+
+    # Start services
+    docker-compose up -d
+
+    # Wait for services to be ready
+    echo "⏳ Waiting for services to be ready..."
+    sleep 30
+
+    # Check service health
+    check_service_health
+}
+
+# Check if services are responding
+check_service_health() {
+    echo "🔍 Checking service health..."
+
+    # Check Consul
+    if curl -s http://localhost:8500/v1/status/leader >/dev/null; then
+        echo "✅ Consul is healthy"
+    else
+        echo "❌ Consul is not responding"
+    fi
+
+    # Check API Gateway
+    if curl -s http://localhost:8080/api/users >/dev/null 2>&1; then
+        echo "✅ API Gateway is healthy"
+    else
+        echo "⚠️  API Gateway may still be starting..."
+    fi
+
+    echo "🎉 Build complete! Services are available at:"
+    echo "   - Consul UI: http://localhost:8500"
+    echo "   - API Gateway: http://localhost:8080"
+    echo "   - Users DB: localhost:5432"
+    echo "   - Products DB: localhost:5433"
+}
+
+# Main execution
+main() {
+    check_dependencies
+    generate_proto_files
+    distribute_proto_files
+    cleanup
     build_and_start
 }
 
 # Run main function
 main "$@"
-```
-
-**Production Build Strategy (CI/CD Pipeline):**
-
-**`.github/workflows/build-and-deploy.yml`:**
-
-```yaml
-name: Build and Deploy Microservices
-
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
-
-jobs:
-  proto-generation:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Setup protoc
-        uses: arduino/setup-protoc@v1
-        with:
-          version: "3.21.12"
-
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: "1.21"
-
-      - name: Install protoc plugins
-        run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
-
-      - name: Generate proto files
-        run: |
-          make generate-proto
-
-      - name: Upload proto artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: proto-generated
-          path: proto/gen/
-
-  test:
-    needs: proto-generation
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [api-gateway, users-service, products-service]
-
-    steps:
-      - uses: actions/checkout@v3
-      - name: Download proto artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: proto-generated
-          path: proto/gen/
-
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: "1.21"
-
-      - name: Run tests
-        run: |
-          cd ${{ matrix.service == 'api-gateway' && 'api-gateway' || format('services/{0}', matrix.service) }}
-          go mod tidy
-          go test -v ./...
-
-  build-images:
-    needs: [proto-generation, test]
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [api-gateway, users-service, products-service]
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download proto artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: proto-generated
-          path: proto/gen/
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v3
-        with:
-          context: ${{ matrix.service == 'api-gateway' && '.' || format('services/{0}', matrix.service) }}
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
-
-  deploy-staging:
-    if: github.ref == 'refs/heads/develop'
-    needs: build-images
-    runs-on: ubuntu-latest
-    environment: staging
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Deploy to Kubernetes (Staging)
-        run: |
-          # Update Kubernetes manifests with new image tags
-          # Apply to staging cluster
-          kubectl set image deployment/api-gateway api-gateway=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api-gateway:${{ github.sha }}
-          kubectl set image deployment/users-service users-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/users-service:${{ github.sha }}
-          kubectl set image deployment/products-service products-service=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/products-service:${{ github.sha }}
-
-  deploy-production:
-    if: github.ref == 'refs/heads/main'
-    needs: build-images
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Deploy to Kubernetes (Production)
-        run: |
-          # Production deployment with blue-green strategy
-          # Canary releases, health checks, rollback capabilities
-          echo "Deploying to production..."
-```
+````
 
 **Makefile for Development:**
 
@@ -1571,12 +1357,6 @@ Make scripts executable:
 ```bash
 chmod +x scripts/build.sh
 chmod +x Makefile
-```
-
-Make it executable:
-
-```bash
-chmod +x build.sh
 ```
 
 ---
