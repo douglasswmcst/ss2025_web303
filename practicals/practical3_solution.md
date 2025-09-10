@@ -947,6 +947,29 @@ func getPurchaseDataHandler(w http.ResponseWriter, r *http.Request) {
 
 ### **Part 6A: Design Decision Analysis - Composite Endpoint Architecture**
 
+#### **Critical Implementation Issues and Fixes**
+
+**⚠️ IMPORTANT ERRORS IDENTIFIED IN THE WALKTHROUGH:**
+
+1. **Missing Environment Variables in Database Configuration**
+   - The PostgreSQL containers in docker-compose.yml are missing `POSTGRES_PASSWORD`
+   - This will cause database connection failures
+
+2. **Incorrect Docker Build Context in Dockerfiles**
+   - API Gateway Dockerfile uses `COPY ../proto ./proto` which won't work
+   - Should use `COPY ../../proto ./proto` or fix the build context
+
+3. **Missing Error Handling for Database Password**
+   - The connection strings don't handle the missing password environment variable
+
+4. **Incomplete go.mod Files**
+   - Missing required dependencies for some services
+   - Version conflicts may occur
+
+5. **Race Condition in Service Startup**
+   - Services may try to connect to databases before they're ready
+   - No proper health checks implemented
+
 #### **Why is the API Gateway handling this composite endpoint?**
 
 **Current Approach: API Gateway Orchestration**
@@ -1038,6 +1061,336 @@ For production systems, consider:
 - Appropriate error handling and circuit breakers
 
 ---
+
+### **Part 6B: Critical Fixes Required**
+
+#### **Fix 1: Corrected Docker Compose Configuration**
+
+**❌ BROKEN VERSION:**
+```yaml
+  users-db:
+    image: postgres:13
+    container_name: users-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_DB: users_db
+    # Missing POSTGRES_PASSWORD - will cause connection failures!
+```
+
+**✅ FIXED VERSION:**
+```yaml
+  users-db:
+    image: postgres:13
+    container_name: users-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: users_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - users_data:/var/lib/postgresql/data
+    networks:
+      - microservices
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d users_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+```
+
+#### **Fix 2: Corrected API Gateway Dockerfile**
+
+**❌ BROKEN VERSION:**
+```dockerfile
+# Copy proto files first
+COPY ../proto ./proto  # This path is WRONG - will fail!
+```
+
+**✅ FIXED VERSION:**
+```dockerfile
+FROM golang:1.21-alpine AS builder
+
+WORKDIR /app
+
+# Create proto directory and copy files correctly
+COPY proto/ ./proto/
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o server ./main.go
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+
+COPY --from=builder /app/server .
+
+EXPOSE 8080
+
+CMD ["./server"]
+```
+
+#### **Fix 3: Enhanced Error Handling in Services**
+
+**❌ PROBLEMATIC CODE:**
+```go
+func main() {
+    // Wait for database to be ready
+    time.Sleep(10 * time.Second)  // Unreliable timing!
+    
+    // Connect to database
+    dsn := "host=users-db user=user password=password dbname=users_db port=5432 sslmode=disable"
+    db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+    if err != nil {
+        log.Fatalf("Failed to connect to database: %v", err)  // No retry logic!
+    }
+}
+```
+
+**✅ IMPROVED VERSION:**
+```go
+func main() {
+    // Connect to database with retry logic
+    db := connectToDatabaseWithRetry()
+    
+    // Rest of the service setup...
+}
+
+func connectToDatabaseWithRetry() *gorm.DB {
+    dsn := "host=users-db user=user password=password dbname=users_db port=5432 sslmode=disable"
+    
+    var db *gorm.DB
+    var err error
+    
+    for i := 0; i < 30; i++ { // Retry for up to 5 minutes
+        db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+        if err == nil {
+            log.Println("Successfully connected to database")
+            break
+        }
+        
+        log.Printf("Failed to connect to database (attempt %d/30): %v", i+1, err)
+        time.Sleep(10 * time.Second)
+    }
+    
+    if err != nil {
+        log.Fatalf("Could not connect to database after 30 attempts: %v", err)
+    }
+    
+    return db
+}
+```
+
+#### **Fix 4: Missing Dependencies in go.mod Files**
+
+**❌ INCOMPLETE go.mod:**
+```go
+module users-service
+
+go 1.21
+
+require (
+    google.golang.org/grpc v1.58.3
+    google.golang.org/protobuf v1.31.0
+    github.com/hashicorp/consul/api v1.25.1
+    gorm.io/gorm v1.25.5
+    gorm.io/driver/postgres v1.5.4
+    // Missing indirect dependencies that may cause issues!
+)
+```
+
+**✅ COMPLETE go.mod:**
+```go
+module users-service
+
+go 1.21
+
+require (
+    google.golang.org/grpc v1.58.3
+    google.golang.org/protobuf v1.31.0
+    github.com/hashicorp/consul/api v1.25.1
+    gorm.io/gorm v1.25.5
+    gorm.io/driver/postgres v1.5.4
+)
+
+require (
+    github.com/armon/go-metrics v0.4.1 // indirect
+    github.com/fatih/color v1.13.0 // indirect
+    github.com/golang/protobuf v1.5.3 // indirect
+    github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
+    github.com/hashicorp/go-hclog v1.5.0 // indirect
+    github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
+    github.com/hashicorp/go-rootcerts v1.0.2 // indirect
+    github.com/hashicorp/golang-lru v0.5.4 // indirect
+    github.com/hashicorp/serf v0.10.1 // indirect
+    github.com/jackc/pgpassfile v1.0.0 // indirect
+    github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+    github.com/jackc/pgx/v5 v5.4.3 // indirect
+    github.com/jinzhu/inflection v1.0.0 // indirect
+    github.com/jinzhu/now v1.1.5 // indirect
+    github.com/mattn/go-colorable v0.1.12 // indirect
+    github.com/mattn/go-isatty v0.0.14 // indirect
+    github.com/mitchellh/go-homedir v1.1.0 // indirect
+    github.com/mitchellh/mapstructure v1.4.1 // indirect
+    golang.org/x/crypto v0.14.0 // indirect
+    golang.org/x/net v0.10.0 // indirect
+    golang.org/x/sys v0.13.0 // indirect
+    golang.org/x/text v0.13.0 // indirect
+    google.golang.org/genproto/googleapis/rpc v0.0.0-20230711160842-782d3b101e98 // indirect
+)
+```
+
+#### **Fix 5: Proper Build Script Error Handling**
+
+**❌ PROBLEMATIC BUILD SCRIPT:**
+```bash
+# Copy proto files to each service for Docker build context
+distribute_proto_files() {
+    echo "📦 Distributing proto files to services..."
+
+    services=("api-gateway" "services/users-service" "services/products-service")
+
+    for service in "${services[@]}"; do
+        echo "  📂 Copying to $service..."
+        mkdir -p "$service/proto/gen"
+        cp -r proto/* "$service/proto/"  # May fail silently!
+    done
+
+    echo "✅ Proto files distributed"
+}
+```
+
+**✅ IMPROVED BUILD SCRIPT:**
+```bash
+# Copy proto files to each service for Docker build context
+distribute_proto_files() {
+    echo "📦 Distributing proto files to services..."
+
+    services=("api-gateway" "services/users-service" "services/products-service")
+
+    for service in "${services[@]}"; do
+        echo "  📂 Copying to $service..."
+        
+        # Check if service directory exists
+        if [ ! -d "$service" ]; then
+            echo "❌ Service directory $service does not exist!"
+            exit 1
+        fi
+        
+        # Create proto directory
+        mkdir -p "$service/proto/gen" || {
+            echo "❌ Failed to create proto directory for $service"
+            exit 1
+        }
+        
+        # Copy proto files with error checking
+        if ! cp -r proto/* "$service/proto/" 2>/dev/null; then
+            echo "❌ Failed to copy proto files to $service"
+            exit 1
+        fi
+        
+        echo "  ✅ Successfully copied proto files to $service"
+    done
+
+    echo "✅ Proto files distributed to all services"
+}
+```
+
+#### **Fix 6: Missing Health Checks and Proper Dependencies**
+
+**✅ ENHANCED DOCKER COMPOSE:**
+```yaml
+services:
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    ports:
+      - "8500:8500"
+    command: "agent -dev -client=0.0.0.0 -ui"
+    networks:
+      - microservices
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  users-service:
+    build: ./services/users-service
+    container_name: users-service
+    ports:
+      - "50051:50051"
+    depends_on:
+      consul:
+        condition: service_healthy
+      users-db:
+        condition: service_healthy
+    environment:
+      - CONSUL_HTTP_ADDR=consul:8500
+      - DB_HOST=users-db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=users_db
+    networks:
+      - microservices
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=:50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### **Part 6C: Testing and Debugging Guide**
+
+#### **Common Errors and Solutions**
+
+1. **Error: "dial tcp: lookup users-service: no such host"**
+   - **Cause**: Services not on same Docker network
+   - **Fix**: Ensure all services use `networks: - microservices`
+
+2. **Error: "failed to connect to database"**
+   - **Cause**: Missing POSTGRES_PASSWORD or wrong connection string
+   - **Fix**: Add all required environment variables to PostgreSQL containers
+
+3. **Error: "no healthy instances of service found"**
+   - **Cause**: Service not registered with Consul or health check failing
+   - **Fix**: Check Consul UI at localhost:8500 and verify service registration
+
+4. **Error: "proto file not found during build"**
+   - **Cause**: Incorrect COPY path in Dockerfile
+   - **Fix**: Use correct relative paths based on build context
+
+5. **Error: "connection refused" when calling gRPC services**
+   - **Cause**: Services starting before dependencies are ready
+   - **Fix**: Implement proper health checks and depends_on conditions
+
+#### **Debugging Commands**
+
+```bash
+# Check service logs
+docker-compose logs users-service
+
+# Check if services are registered in Consul
+curl http://localhost:8500/v1/agent/services
+
+# Test database connectivity
+docker exec -it users-db psql -U user -d users_db -c "\dt"
+
+# Check if ports are accessible
+nc -zv localhost 50051  # Users service
+nc -zv localhost 50052  # Products service
+nc -zv localhost 8080   # API Gateway
+
+# Inspect Docker networks
+docker network inspect practical-three_microservices
+```
 
 ````
 
