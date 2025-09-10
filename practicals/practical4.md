@@ -45,7 +45,9 @@ We'll build a simplified e-commerce system with the following services:
 
 ---
 
-## **Technology Stack**
+## **Technology Stack & Architecture Components**
+
+### **Core Technologies**
 
 - **Backend**: Go with Chi router
 - **Database**: PostgreSQL (one per service)
@@ -55,11 +57,56 @@ We'll build a simplified e-commerce system with the following services:
 - **Frontend**: ReactJS
 - **Development**: Docker, kubectl, helm
 
+### **Kubernetes Role in Microservices**
+
+**Kubernetes** serves as our container orchestration platform, providing:
+
+1. **Service Discovery & Load Balancing**: Automatically distributes traffic across service replicas
+2. **Auto-scaling**: Horizontal Pod Autoscaler (HPA) scales services based on CPU/memory usage
+3. **Health Checks**: Liveness and readiness probes ensure service reliability
+4. **Configuration Management**: ConfigMaps and Secrets for environment-specific settings
+5. **Rolling Updates**: Zero-downtime deployments with automatic rollback capabilities
+6. **Resource Management**: CPU/memory limits and requests for efficient resource utilization
+7. **Network Policies**: Secure inter-service communication
+
+### **Helm Role in Microservices Management**
+
+**Helm** acts as the "package manager" for Kubernetes, providing:
+
+1. **Templating**: Reusable YAML templates with values injection
+2. **Release Management**: Track, upgrade, and rollback application deployments
+3. **Dependency Management**: Manage complex service dependencies and installation order
+4. **Environment Promotion**: Consistent deployments across dev/staging/production
+5. **Configuration Management**: Environment-specific values files
+6. **Lifecycle Hooks**: Pre/post-install, upgrade, and delete hooks
+
+### **Kong Gateway Integration**
+
+**Kong** provides enterprise-grade API gateway functionality:
+
+1. **Traffic Management**: Rate limiting, request/response transformation
+2. **Security**: Authentication, authorization, and JWT validation
+3. **Observability**: Logging, metrics, and distributed tracing
+4. **Service Mesh Integration**: Works seamlessly with Consul Connect
+5. **Plugin Ecosystem**: Extensible with custom and community plugins
+
+### **Consul Service Mesh Benefits**
+
+**Consul Connect** enables secure service-to-service communication:
+
+1. **Service Discovery**: Automatic service registration and health checking
+2. **mTLS Encryption**: Automatic certificate management and rotation
+3. **Traffic Management**: Circuit breakers, retries, and timeouts
+4. **Observability**: Service topology and traffic flow visualization
+5. **Policy Enforcement**: Intention-based access control between services
+
 ---
 
 ## **Part 1: Prerequisites & Environment Setup**
 
-### **1.1 Required Tools**
+### **1.1 Required Tools Installation**
+
+#### **macOS Setup**
 
 ```bash
 # Install required tools (macOS)
@@ -69,62 +116,728 @@ brew install docker
 brew install go
 brew install node npm
 
+# Install protobuf compiler
+brew install protobuf
+
+# Install Go plugins for protobuf
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
 # Verify installations
 kubectl version --client
 helm version
 docker --version
 go version
 node --version
+protoc --version
 ```
 
-### **1.2 Local Kubernetes Setup**
+#### **Linux (Ubuntu/Debian) Setup**
 
-We'll use Docker Desktop's built-in Kubernetes for development:
+```bash
+# Update package manager
+sudo apt update
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install Go (replace with latest version)
+wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Install Node.js and npm
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install protobuf compiler
+sudo apt-get install -y protobuf-compiler
+
+# Install Go plugins for protobuf
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Verify installations
+kubectl version --client
+helm version
+docker --version
+go version
+node --version
+protoc --version
+```
+
+#### **Linux (CentOS/RHEL/Fedora) Setup**
+
+```bash
+# Update package manager
+sudo dnf update -y  # or 'sudo yum update -y' for older versions
+
+# Install Docker
+sudo dnf install -y dnf-utils
+sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+sudo dnf install -y docker-ce docker-ce-cli containerd.io
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+# Install Helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Install Go
+sudo dnf install -y golang
+# Or download latest version:
+# wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
+# sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+# echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+
+# Install Node.js and npm
+sudo dnf install -y nodejs npm
+
+# Install protobuf compiler
+sudo dnf install -y protobuf-compiler
+
+# Install Go plugins for protobuf
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+```
+
+#### **Windows Setup**
+
+**Option 1: Using Chocolatey (Recommended)**
+
+```powershell
+# Install Chocolatey (run as Administrator)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install required tools
+choco install docker-desktop
+choco install kubernetes-cli
+choco install kubernetes-helm
+choco install golang
+choco install nodejs
+choco install protoc
+choco install git
+
+# Install Go plugins for protobuf (run in Command Prompt or PowerShell)
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# Verify installations
+kubectl version --client
+helm version
+docker --version
+go version
+node --version
+protoc --version
+```
+
+**Option 2: Manual Installation**
+
+1. **Docker Desktop**: Download from https://www.docker.com/products/docker-desktop
+   - Enable Kubernetes in Docker Desktop settings
+2. **kubectl**: Download from https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/
+
+   ```powershell
+   # Using curl (if available)
+   curl -LO "https://dl.k8s.io/release/v1.28.0/bin/windows/amd64/kubectl.exe"
+   # Add to PATH environment variable
+   ```
+
+3. **Helm**: Download from https://helm.sh/docs/intro/install/#from-the-binary-releases
+
+   ```powershell
+   # Download and extract helm.exe
+   # Add to PATH environment variable
+   ```
+
+4. **Go**: Download from https://golang.org/dl/
+
+   - Install MSI package
+   - Verify GOPATH and GOROOT are set
+
+5. **Node.js**: Download from https://nodejs.org/
+
+   - Install MSI package
+
+6. **Protobuf Compiler**:
+   - Download from https://github.com/protocolbuffers/protobuf/releases
+   - Extract and add `bin` directory to PATH
+
+#### **WSL2 Setup (Windows Subsystem for Linux)**
+
+For Windows users, WSL2 provides a native Linux experience:
+
+```bash
+# Install WSL2 (PowerShell as Administrator)
+wsl --install
+
+# After restart, in WSL2 terminal, follow Linux Ubuntu setup steps above
+
+# Configure Docker Desktop to use WSL2 backend
+# In Docker Desktop: Settings → General → Use the WSL 2 based engine
+# In Docker Desktop: Settings → Resources → WSL Integration → Enable integration
+```
+
+### **1.2 Kubernetes Cluster Setup**
+
+#### **Local Development Options**
+
+**Option 1: Docker Desktop Kubernetes (Recommended for beginners)**
 
 ```bash
 # Enable Kubernetes in Docker Desktop
-# Go to Docker Desktop → Preferences → Kubernetes → Enable Kubernetes
+# macOS/Windows: Docker Desktop → Preferences → Kubernetes → Enable Kubernetes
+# Linux: Use Docker Desktop for Linux or alternative options below
 
 # Verify cluster is running
 kubectl cluster-info
 kubectl get nodes
+
+# Set context (if multiple clusters)
+kubectl config current-context
+kubectl config use-context docker-desktop
 ```
 
-### **1.3 Install Kong on Kubernetes**
+**Option 2: Minikube (Cross-platform)**
+
+```bash
+# Install Minikube
+# macOS
+brew install minikube
+
+# Linux
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+# Windows (using Chocolatey)
+choco install minikube
+
+# Start Minikube cluster
+minikube start --driver=docker --cpus=4 --memory=8192
+minikube addons enable ingress
+minikube addons enable metrics-server
+
+# Verify cluster
+kubectl cluster-info
+kubectl get nodes
+```
+
+**Option 3: Kind (Kubernetes in Docker)**
+
+```bash
+# Install Kind
+# macOS
+brew install kind
+
+# Linux
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+
+# Windows
+choco install kind
+
+# Create cluster
+cat <<EOF | kind create cluster --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+- role: worker
+- role: worker
+EOF
+
+# Verify cluster
+kubectl cluster-info
+kubectl get nodes
+```
+
+#### **Production-Ready Options**
+
+**For Learning/Testing:**
+
+- **EKS (AWS)**: Managed Kubernetes service
+- **GKE (Google Cloud)**: Google Kubernetes Engine
+- **AKS (Azure)**: Azure Kubernetes Service
+- **DigitalOcean Kubernetes**: Simple managed Kubernetes
+
+**Resource Requirements:**
+
+- **Minimum**: 4GB RAM, 2 CPU cores
+- **Recommended**: 8GB RAM, 4 CPU cores
+- **Disk Space**: 20GB free space
+
+### **1.3 Install Kong API Gateway on Kubernetes**
+
+**Kong** serves as our API Gateway, providing centralized routing, authentication, rate limiting, and observability for all microservices. **Helm** simplifies Kong's complex Kubernetes deployment by managing all required resources (deployments, services, configmaps, secrets) as a single unit.
+
+#### **Why Kong + Kubernetes + Helm?**
+
+1. **Kong Benefits:**
+
+   - Single entry point for all API traffic
+   - Built-in security (JWT, OAuth2, API keys)
+   - Rate limiting and traffic control
+   - Request/response transformation
+   - Plugin ecosystem for extensibility
+
+2. **Helm Benefits for Kong:**
+   - Manages 15+ Kubernetes resources as one deployment
+   - Handles complex configuration with simple values
+   - Enables easy upgrades and rollbacks
+   - Environment-specific configurations
+
+#### **Kong Installation Steps**
 
 ```bash
 # Add Kong Helm repository
 helm repo add kong https://charts.konghq.com
 helm repo update
 
-# Create kong namespace
+# Create dedicated namespace for Kong
 kubectl create namespace kong
 
-# Install Kong with database
+# Install Kong with PostgreSQL database
 helm install kong kong/kong -n kong \
   --set ingressController.enabled=true \
   --set image.repository=kong \
   --set image.tag=3.4 \
   --set env.database=postgres \
   --set postgresql.enabled=true \
-  --set postgresql.auth.postgresPassword=kong
+  --set postgresql.auth.postgresPassword=kong \
+  --set admin.enabled=true \
+  --set admin.http.enabled=true
+
+# Wait for Kong to be ready
+kubectl wait --namespace kong \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=app \
+  --timeout=300s
+
+# Verify Kong installation
+kubectl get pods -n kong
+kubectl get services -n kong
+
+# Get Kong Admin API URL (for local clusters)
+echo "Kong Admin API: http://localhost:8001"
+kubectl port-forward -n kong service/kong-kong-admin 8001:8001 &
+
+# Get Kong Proxy URL
+echo "Kong Proxy: http://localhost:8000"
+kubectl port-forward -n kong service/kong-kong-proxy 8000:80 &
+
+# Test Kong Admin API
+curl -i http://localhost:8001/
 ```
 
-### **1.4 Install Consul**
+#### **Kong Configuration Management**
+
+```bash
+# Create custom values file for different environments
+cat <<EOF > kong-values-dev.yaml
+replicaCount: 1
+env:
+  database: postgres
+  log_level: debug
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "kong-dev"
+
+ingressController:
+  enabled: true
+
+admin:
+  enabled: true
+  http:
+    enabled: true
+
+proxy:
+  type: LoadBalancer
+EOF
+
+# Install with custom values
+helm upgrade --install kong kong/kong -n kong -f kong-values-dev.yaml
+```
+
+### **1.4 Install Consul Service Mesh**
+
+**Consul Connect** provides service mesh functionality, enabling secure service-to-service communication with automatic mTLS, service discovery, and traffic management. **Helm** manages the complex Consul cluster deployment across multiple Kubernetes nodes.
+
+#### **Why Consul + Kubernetes + Helm?**
+
+1. **Consul Connect Benefits:**
+
+   - Automatic service discovery and registration
+   - Mutual TLS (mTLS) for all service communication
+   - Traffic management (circuit breakers, retries)
+   - Service intentions for access control
+   - Health checking and failure detection
+
+2. **Helm Benefits for Consul:**
+   - Manages StatefulSets for Consul servers
+   - Configures service mesh sidecar injection
+   - Handles RBAC and security policies
+   - Enables easy multi-datacenter setup
+
+#### **Consul Installation Steps**
 
 ```bash
 # Add HashiCorp Helm repository
 helm repo add hashicorp https://helm.releases.hashicorp.com
 helm repo update
 
-# Create consul namespace
+# Create dedicated namespace for Consul
 kubectl create namespace consul
 
-# Install Consul with Connect enabled
-helm install consul hashicorp/consul -n consul \
-  --set global.name=consul \
-  --set connectInject.enabled=true \
-  --set controller.enabled=true
+# Create custom values for Consul
+cat <<EOF > consul-values.yaml
+global:
+  name: consul
+  datacenter: dc1
+
+server:
+  replicas: 1
+  bootstrapExpect: 1
+
+connectInject:
+  enabled: true
+  default: false  # Explicit opt-in per service
+
+controller:
+  enabled: true
+
+ui:
+  enabled: true
+  service:
+    type: LoadBalancer
+
+client:
+  enabled: true
+
+syncCatalog:
+  enabled: true
+  default: true
+EOF
+
+# Install Consul with custom configuration
+helm install consul hashicorp/consul -n consul -f consul-values.yaml
+
+# Wait for Consul to be ready
+kubectl wait --namespace consul \
+  --for=condition=ready pod \
+  --selector=app=consul,component=server \
+  --timeout=300s
+
+# Verify Consul installation
+kubectl get pods -n consul
+kubectl get services -n consul
+
+# Get Consul UI URL (for local clusters)
+echo "Consul UI: http://localhost:8500"
+kubectl port-forward -n consul service/consul-ui 8500:80 &
+
+# Test Consul API
+curl http://localhost:8500/v1/status/leader
+```
+
+#### **Enable Service Mesh for Microservices**
+
+```bash
+# Create a test namespace with service mesh enabled
+kubectl create namespace microservices
+
+# Label namespace for automatic sidecar injection
+kubectl label namespace microservices connect-inject=enabled
+
+# Verify service mesh injection is working
+kubectl get mutatingwebhookconfiguration consul-consul-connect-injector
+```
+
+#### **Consul Service Mesh Features Demo**
+
+```bash
+# View service topology (after services are deployed)
+kubectl exec -n consul consul-consul-server-0 -- consul catalog services
+
+# Check service health
+kubectl exec -n consul consul-consul-server-0 -- consul catalog nodes -service=user-service
+
+# View service intentions (access control)
+kubectl get serviceintentions -n microservices
+```
+
+### **1.5 Integration Architecture Overview**
+
+#### **How Kubernetes, Kong, Consul, and Helm Work Together**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Kubernetes Cluster                               │
+│                                                                         │
+│  ┌─────────────┐     ┌─────────────────────────────────────────────┐   │
+│  │   Ingress   │────▶│            Kong Namespace                   │   │
+│  │ Controller  │     │                                             │   │
+│  └─────────────┘     │  ┌─────────────┐  ┌─────────────────────┐   │   │
+│                      │  │ Kong Proxy  │  │   Kong Admin API    │   │   │
+│                      │  │   (Port 80) │  │     (Port 8001)     │   │   │
+│                      │  └─────────────┘  └─────────────────────┘   │   │
+│                      └─────────────────────────────────────────────┘   │
+│                                    │                                   │
+│                                    │ Routes Traffic                    │
+│                                    ▼                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                  Microservices Namespace                       │   │
+│  │                                                                 │   │
+│  │ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ │   │
+│  │ │User Service │ │Product Svc  │ │Cart Service │ │Order Service│ │   │
+│  │ │   + Envoy   │ │  + Envoy    │ │  + Envoy    │ │  + Envoy    │ │   │
+│  │ │   Sidecar   │ │   Sidecar   │ │   Sidecar   │ │   Sidecar   │ │   │
+│  │ └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘ │   │
+│  │       │               │               │               │         │   │
+│  │       └───────────────┼───────────────┼───────────────┘         │   │
+│  │                 mTLS Encrypted Communication                     │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                    ▲                                   │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    Consul Namespace                             │   │
+│  │                                                                 │   │
+│  │ ┌─────────────┐  ┌─────────────────┐  ┌─────────────────────┐  │   │
+│  │ │Consul Server│  │ Service Catalog │  │  Connect Injector   │  │   │
+│  │ │  (Raft)     │  │ & Health Checks │  │   (Webhook)         │  │   │
+│  │ └─────────────┘  └─────────────────┘  └─────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+                        All managed by Helm Charts
+```
+
+#### **Component Integration Flow**
+
+1. **Helm Charts Management:**
+
+   ```bash
+   # All infrastructure as code
+   helm list --all-namespaces
+
+   # Output shows:
+   # NAME     NAMESPACE   REVISION   STATUS     CHART
+   # kong     kong        1          deployed   kong-2.33.3
+   # consul   consul      1          deployed   consul-1.2.2
+   ```
+
+2. **Traffic Flow:**
+
+   - **External Request** → **Kong Proxy** → **Service Discovery via Consul** → **Target Microservice**
+   - **Inter-service calls** → **Consul Connect mTLS** → **Direct service communication**
+
+3. **Service Registration:**
+
+   ```bash
+   # Consul automatically discovers Kubernetes services
+   kubectl exec -n consul consul-server-0 -- consul catalog services
+
+   # Kong routes configured via Kubernetes Ingress
+   kubectl get ingress -n microservices
+   ```
+
+#### **Development Workflow Integration**
+
+```bash
+# 1. Deploy microservice with Helm
+helm install user-service ./charts/user-service -n microservices
+
+# 2. Service automatically registers with Consul
+kubectl get pods -n microservices
+# Shows: user-service-xxx (2/2 containers) - app + envoy sidecar
+
+# 3. Configure Kong routes
+kubectl apply -f k8s/kong-routes.yaml
+
+# 4. Test complete integration
+curl -H "Host: api.local" http://localhost:8000/users
+```
+
+#### **Observability Stack**
+
+```bash
+# Install monitoring stack with Helm
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm install monitoring prometheus-community/kube-prometheus-stack -n monitoring --create-namespace
+
+# Kong metrics integration
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-prometheus
+  namespace: kong
+data:
+  prometheus.yml: |
+    plugins:
+      - name: prometheus
+        config:
+          per_consumer: true
+EOF
+
+# Consul metrics integration
+helm upgrade consul hashicorp/consul -n consul -f consul-values.yaml \
+  --set global.metrics.enabled=true \
+  --set global.metrics.enableGatewayMetrics=true
+```
+
+#### **Benefits of This Integrated Architecture**
+
+1. **Unified Management**: Helm manages all components with version control
+2. **Security**: Consul Connect provides mTLS for all internal communication
+3. **Scalability**: Kubernetes handles auto-scaling and load distribution
+4. **Observability**: Centralized logging, metrics, and tracing
+5. **Development Experience**: Consistent tooling across all environments
+
+### **1.6 Platform-Specific Troubleshooting**
+
+#### **Common Issues and Solutions**
+
+**macOS Issues:**
+
+```bash
+# Docker Desktop not starting
+# Solution: Reset Docker Desktop to factory defaults
+docker system prune -a
+# Restart Docker Desktop
+
+# Kubernetes context issues
+kubectl config get-contexts
+kubectl config use-context docker-desktop
+
+# Port forwarding issues on macOS
+# Kill existing port forwards
+lsof -ti:8000 | xargs kill -9
+lsof -ti:8001 | xargs kill -9
+```
+
+**Linux Issues:**
+
+```bash
+# Docker permission denied
+sudo usermod -aG docker $USER
+newgrp docker
+
+# kubectl not found after installation
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+source ~/.bashrc
+
+# Minikube won't start
+minikube delete
+minikube start --driver=docker --force
+
+# Firewall blocking ports
+sudo ufw allow 8000
+sudo ufw allow 8001
+sudo ufw allow 8500
+```
+
+**Windows Issues:**
+
+```powershell
+# Docker Desktop WSL2 backend issues
+wsl --update
+# Restart Docker Desktop
+
+# PowerShell execution policy
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Chocolatey installation issues
+# Run PowerShell as Administrator
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
+# Port already in use
+netstat -ano | findstr :8000
+# Kill process: taskkill /PID <PID> /F
+
+# kubectl not found
+# Add to PATH: C:\Program Files\kubectl\
+```
+
+**WSL2 Specific Issues:**
+
+```bash
+# WSL2 memory issues
+# Create/edit ~/.wslconfig
+[wsl2]
+memory=8GB
+processors=4
+
+# Restart WSL2
+wsl --shutdown
+wsl
+```
+
+#### **Verification Commands**
+
+```bash
+# Complete environment verification script
+#!/bin/bash
+echo "=== Environment Verification ==="
+
+# Check Docker
+docker --version && echo "✓ Docker OK" || echo "✗ Docker failed"
+
+# Check Kubernetes
+kubectl version --client && echo "✓ kubectl OK" || echo "✗ kubectl failed"
+kubectl cluster-info && echo "✓ Cluster OK" || echo "✗ Cluster failed"
+
+# Check Helm
+helm version && echo "✓ Helm OK" || echo "✗ Helm failed"
+
+# Check Go
+go version && echo "✓ Go OK" || echo "✗ Go failed"
+
+# Check Node.js
+node --version && echo "✓ Node.js OK" || echo "✗ Node.js failed"
+
+# Check protobuf
+protoc --version && echo "✓ Protobuf OK" || echo "✗ Protobuf failed"
+
+# Check Kong
+kubectl get pods -n kong && echo "✓ Kong pods OK" || echo "✗ Kong failed"
+
+# Check Consul
+kubectl get pods -n consul && echo "✓ Consul pods OK" || echo "✗ Consul failed"
+
+echo "=== Verification Complete ==="
 ```
 
 ---
@@ -1601,9 +2314,9 @@ func (s *server) AddToCart(ctx context.Context, req *pb.AddToCartRequest) (*pb.C
     // Check if item already exists in cart
     var existingItem CartItem
     checkQuery := `SELECT id, quantity FROM cart_items WHERE user_id = $1 AND product_id = $2`
-    
+
     err := s.db.QueryRowContext(ctx, checkQuery, req.UserId, req.ProductId).Scan(&existingItem.ID, &existingItem.Quantity)
-    
+
     if err == nil {
         // Update existing item
         updateQuery := `UPDATE cart_items SET quantity = $1, updated_at = NOW() WHERE id = $2`
@@ -1614,7 +2327,7 @@ func (s *server) AddToCart(ctx context.Context, req *pb.AddToCartRequest) (*pb.C
     } else if err == sql.ErrNoRows {
         // Add new item
         insertQuery := `
-            INSERT INTO cart_items (user_id, product_id, quantity, created_at, updated_at) 
+            INSERT INTO cart_items (user_id, product_id, quantity, created_at, updated_at)
             VALUES ($1, $2, $3, NOW(), NOW())`
         _, err = s.db.ExecContext(ctx, insertQuery, req.UserId, req.ProductId, req.Quantity)
         if err != nil {
@@ -1633,9 +2346,9 @@ func (s *server) GetCart(ctx context.Context, req *pb.GetCartRequest) (*pb.CartR
     defer cancel()
 
     query := `
-        SELECT user_id, product_id, product_name, product_price, quantity, updated_at 
-        FROM cart_items 
-        WHERE user_id = $1 
+        SELECT user_id, product_id, product_name, product_price, quantity, updated_at
+        FROM cart_items
+        WHERE user_id = $1
         ORDER BY updated_at DESC`
 
     rows, err := s.db.QueryContext(ctx, query, req.UserId)
@@ -1650,7 +2363,7 @@ func (s *server) GetCart(ctx context.Context, req *pb.GetCartRequest) (*pb.CartR
 
     for rows.Next() {
         var item CartItem
-        err := rows.Scan(&item.UserID, &item.ProductID, &item.ProductName, 
+        err := rows.Scan(&item.UserID, &item.ProductID, &item.ProductName,
             &item.ProductPrice, &item.Quantity, &item.UpdatedAt)
         if err != nil {
             return nil, fmt.Errorf("failed to scan cart item: %w", err)
@@ -1750,17 +2463,17 @@ func initDB() (*sql.DB, error) {
     if dbHost == "" {
         dbHost = "localhost"
     }
-    
+
     dbUser := os.Getenv("DB_USER")
     if dbUser == "" {
         dbUser = "postgres"
     }
-    
+
     dbPassword := os.Getenv("DB_PASSWORD")
     if dbPassword == "" {
         dbPassword = "password"
     }
-    
+
     dbName := os.Getenv("DB_NAME")
     if dbName == "" {
         dbName = "cart_db"
@@ -1771,7 +2484,7 @@ func initDB() (*sql.DB, error) {
 
     var db *sql.DB
     var err error
-    
+
     for i := 0; i < 5; i++ {
         db, err = sql.Open("postgres", dsn)
         if err == nil {
@@ -1780,7 +2493,7 @@ func initDB() (*sql.DB, error) {
                 break
             }
         }
-        
+
         wait := time.Duration(i+1) * time.Second
         log.Printf("Failed to connect to database (attempt %d/5), retrying in %v: %v", i+1, wait, err)
         time.Sleep(wait)
@@ -1827,7 +2540,7 @@ func main() {
 
         grpcServer := grpc.NewServer()
         pb.RegisterCartServiceServer(grpcServer, &server{db: db})
-        
+
         healthServer := health.NewServer()
         grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
         healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -1840,11 +2553,11 @@ func main() {
 
     // Start HTTP server
     r := chi.NewRouter()
-    
+
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
     r.Use(middleware.Timeout(30 * time.Second))
-    
+
     r.Use(cors.Handler(cors.Options{
         AllowedOrigins:   []string{"http://localhost:3000"},
         AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -1978,17 +2691,17 @@ func (s *server) ProcessPayment(ctx context.Context, req *pb.ProcessPaymentReque
     // Simulate payment processing delay
     processingTime := time.Duration(rand.Intn(3)+1) * time.Second
     log.Printf("Processing payment %s, estimated time: %v", paymentID, processingTime)
-    
+
     // Simulate different failure scenarios for circuit breaker testing
     failureRate := 0.3 // 30% failure rate
     if rand.Float64() < failureRate {
         // Simulate payment gateway timeout or failure
         time.Sleep(processingTime)
-        
+
         failureType := rand.Intn(3)
         var errorMsg string
         var status pb.PaymentStatus
-        
+
         switch failureType {
         case 0:
             errorMsg = "Payment gateway timeout"
@@ -2000,7 +2713,7 @@ func (s *server) ProcessPayment(ctx context.Context, req *pb.ProcessPaymentReque
             errorMsg = "Payment gateway temporarily unavailable"
             status = pb.PaymentStatus_FAILED
         }
-        
+
         // Still record the failed payment
         payment := Payment{
             ID:            paymentID,
@@ -2011,9 +2724,9 @@ func (s *server) ProcessPayment(ctx context.Context, req *pb.ProcessPaymentReque
             Status:        status.String(),
             CreatedAt:     time.Now(),
         }
-        
+
         s.recordPayment(ctx, &payment)
-        
+
         return &pb.PaymentResponse{
             PaymentId: paymentID,
             Status:    status,
@@ -2061,7 +2774,7 @@ func (s *server) GetPaymentStatus(ctx context.Context, req *pb.GetPaymentStatusR
 
     var payment Payment
     query := `SELECT id, amount, status, created_at FROM payments WHERE id = $1`
-    
+
     err := s.db.QueryRowContext(ctx, query, req.PaymentId).Scan(
         &payment.ID, &payment.Amount, &payment.Status, &payment.CreatedAt)
     if err != nil {
@@ -2094,13 +2807,13 @@ func (s *server) GetPaymentStatus(ctx context.Context, req *pb.GetPaymentStatusR
 
 func (s *server) recordPayment(ctx context.Context, payment *Payment) error {
     query := `
-        INSERT INTO payments (id, order_id, user_id, amount, payment_method, status, created_at) 
+        INSERT INTO payments (id, order_id, user_id, amount, payment_method, status, created_at)
         VALUES ($1, $2, $3, $4, $5, $6, $7)`
-    
-    _, err := s.db.ExecContext(ctx, query, 
+
+    _, err := s.db.ExecContext(ctx, query,
         payment.ID, payment.OrderID, payment.UserID, payment.Amount,
         payment.PaymentMethod, payment.Status, payment.CreatedAt)
-    
+
     return err
 }
 
@@ -2109,17 +2822,17 @@ func initDB() (*sql.DB, error) {
     if dbHost == "" {
         dbHost = "localhost"
     }
-    
+
     dbUser := os.Getenv("DB_USER")
     if dbUser == "" {
         dbUser = "postgres"
     }
-    
+
     dbPassword := os.Getenv("DB_PASSWORD")
     if dbPassword == "" {
         dbPassword = "password"
     }
-    
+
     dbName := os.Getenv("DB_NAME")
     if dbName == "" {
         dbName = "payments_db"
@@ -2130,7 +2843,7 @@ func initDB() (*sql.DB, error) {
 
     var db *sql.DB
     var err error
-    
+
     for i := 0; i < 5; i++ {
         db, err = sql.Open("postgres", dsn)
         if err == nil {
@@ -2139,7 +2852,7 @@ func initDB() (*sql.DB, error) {
                 break
             }
         }
-        
+
         wait := time.Duration(i+1) * time.Second
         log.Printf("Failed to connect to database (attempt %d/5), retrying in %v: %v", i+1, wait, err)
         time.Sleep(wait)
@@ -2187,7 +2900,7 @@ func main() {
 
         grpcServer := grpc.NewServer()
         pb.RegisterPaymentServiceServer(grpcServer, &server{db: db})
-        
+
         healthServer := health.NewServer()
         grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
         healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -2200,11 +2913,11 @@ func main() {
 
     // Start HTTP server
     r := chi.NewRouter()
-    
+
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
     r.Use(middleware.Timeout(30 * time.Second))
-    
+
     r.Use(cors.Handler(cors.Options{
         AllowedOrigins:   []string{"http://localhost:3000"},
         AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -2223,7 +2936,7 @@ func main() {
             http.Error(w, err.Error(), http.StatusBadRequest)
             return
         }
-        
+
         // This is a simplified way - in production you'd use proper configuration
         log.Printf("Failure rate updated to: %.2f", req.FailureRate)
         w.WriteHeader(http.StatusOK)
@@ -2383,7 +3096,7 @@ func (cb *CircuitBreaker) Call(fn func() error) error {
     }
 
     err := fn()
-    
+
     if err != nil {
         cb.recordFailure()
         return err
@@ -2430,7 +3143,7 @@ func (s *server) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*
 
     // Generate order ID
     orderID := fmt.Sprintf("order_%d", time.Now().Unix())
-    
+
     // Get user's cart
     cartResp, err := s.cartClient.GetCart(ctx, &pb.GetCartRequest{UserId: req.UserId})
     if err != nil {
@@ -2459,11 +3172,11 @@ func (s *server) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*
     }
 
     orderQuery := `
-        INSERT INTO orders (id, user_id, total_amount, status, created_at, updated_at) 
+        INSERT INTO orders (id, user_id, total_amount, status, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, $6)`
-    
-    _, err = tx.ExecContext(ctx, orderQuery, 
-        order.ID, order.UserID, order.TotalAmount, order.Status, 
+
+    _, err = tx.ExecContext(ctx, orderQuery,
+        order.ID, order.UserID, order.TotalAmount, order.Status,
         order.CreatedAt, order.UpdatedAt)
     if err != nil {
         return nil, fmt.Errorf("failed to create order: %w", err)
@@ -2472,9 +3185,9 @@ func (s *server) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*
     // Create order items
     for _, item := range cartResp.Cart.Items {
         itemQuery := `
-            INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity) 
+            INSERT INTO order_items (order_id, product_id, product_name, product_price, quantity)
             VALUES ($1, $2, $3, $4, $5)`
-        
+
         _, err = tx.ExecContext(ctx, itemQuery,
             order.ID, item.ProductId, item.ProductName, item.ProductPrice, item.Quantity)
         if err != nil {
@@ -2520,7 +3233,7 @@ func (s *server) CreateOrder(ctx context.Context, req *pb.CreateOrderRequest) (*
     var orderStatus pb.OrderStatus
     if paymentResp.Success {
         orderStatus = pb.OrderStatus_CONFIRMED
-        
+
         // Clear user's cart on successful order
         _, err = s.cartClient.ClearCart(ctx, &pb.ClearCartRequest{UserId: req.UserId})
         if err != nil {
@@ -2552,9 +3265,9 @@ func (s *server) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.Ord
 
     var order Order
     orderQuery := `
-        SELECT id, user_id, total_amount, status, payment_id, created_at, updated_at 
+        SELECT id, user_id, total_amount, status, payment_id, created_at, updated_at
         FROM orders WHERE id = $1`
-    
+
     err := s.db.QueryRowContext(ctx, orderQuery, req.OrderId).Scan(
         &order.ID, &order.UserID, &order.TotalAmount, &order.Status,
         &order.PaymentID, &order.CreatedAt, &order.UpdatedAt)
@@ -2567,9 +3280,9 @@ func (s *server) GetOrder(ctx context.Context, req *pb.GetOrderRequest) (*pb.Ord
 
     // Get order items
     itemsQuery := `
-        SELECT product_id, product_name, product_price, quantity 
+        SELECT product_id, product_name, product_price, quantity
         FROM order_items WHERE order_id = $1`
-    
+
     rows, err := s.db.QueryContext(ctx, itemsQuery, req.OrderId)
     if err != nil {
         return nil, fmt.Errorf("failed to get order items: %w", err)
@@ -2626,9 +3339,9 @@ func (s *server) GetUserOrders(ctx context.Context, req *pb.GetUserOrdersRequest
     defer cancel()
 
     query := `
-        SELECT id, user_id, total_amount, status, payment_id, created_at, updated_at 
-        FROM orders 
-        WHERE user_id = $1 
+        SELECT id, user_id, total_amount, status, payment_id, created_at, updated_at
+        FROM orders
+        WHERE user_id = $1
         ORDER BY created_at DESC`
 
     rows, err := s.db.QueryContext(ctx, query, req.UserId)
@@ -2640,7 +3353,7 @@ func (s *server) GetUserOrders(ctx context.Context, req *pb.GetUserOrdersRequest
     var orders []*pb.Order
     for rows.Next() {
         var order Order
-        err := rows.Scan(&order.ID, &order.UserID, &order.TotalAmount, 
+        err := rows.Scan(&order.ID, &order.UserID, &order.TotalAmount,
             &order.Status, &order.PaymentID, &order.CreatedAt, &order.UpdatedAt)
         if err != nil {
             return nil, fmt.Errorf("failed to scan order: %w", err)
@@ -2687,17 +3400,17 @@ func initDB() (*sql.DB, error) {
     if dbHost == "" {
         dbHost = "localhost"
     }
-    
+
     dbUser := os.Getenv("DB_USER")
     if dbUser == "" {
         dbUser = "postgres"
     }
-    
+
     dbPassword := os.Getenv("DB_PASSWORD")
     if dbPassword == "" {
         dbPassword = "password"
     }
-    
+
     dbName := os.Getenv("DB_NAME")
     if dbName == "" {
         dbName = "orders_db"
@@ -2708,7 +3421,7 @@ func initDB() (*sql.DB, error) {
 
     var db *sql.DB
     var err error
-    
+
     for i := 0; i < 5; i++ {
         db, err = sql.Open("postgres", dsn)
         if err == nil {
@@ -2717,7 +3430,7 @@ func initDB() (*sql.DB, error) {
                 break
             }
         }
-        
+
         wait := time.Duration(i+1) * time.Second
         log.Printf("Failed to connect to database (attempt %d/5), retrying in %v: %v", i+1, wait, err)
         time.Sleep(wait)
@@ -2786,7 +3499,7 @@ func main() {
 
     paymentClient := pb.NewPaymentServiceClient(paymentConn)
     cartClient := pb.NewCartServiceClient(cartConn)
-    
+
     // Initialize circuit breaker (3 failures, 30 second reset)
     circuitBreaker := NewCircuitBreaker(3, 30*time.Second)
 
@@ -2804,7 +3517,7 @@ func main() {
             cartClient:     cartClient,
             circuitBreaker: circuitBreaker,
         })
-        
+
         healthServer := health.NewServer()
         grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
         healthServer.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -2817,11 +3530,11 @@ func main() {
 
     // Start HTTP server
     r := chi.NewRouter()
-    
+
     r.Use(middleware.Logger)
     r.Use(middleware.Recoverer)
     r.Use(middleware.Timeout(30 * time.Second))
-    
+
     r.Use(cors.Handler(cors.Options{
         AllowedOrigins:   []string{"http://localhost:3000"},
         AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -2898,7 +3611,8 @@ CMD ["./server"]
 ```
 
 ---
-```
+
+````
 
 ---
 
@@ -2987,7 +3701,7 @@ spec:
   resources:
     requests:
       storage: 5Gi
-```
+````
 
 **`k8s/deployments/postgres-product-db.yaml`:**
 
