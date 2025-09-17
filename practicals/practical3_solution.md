@@ -952,17 +952,21 @@ func getPurchaseDataHandler(w http.ResponseWriter, r *http.Request) {
 **⚠️ IMPORTANT ERRORS IDENTIFIED IN THE WALKTHROUGH:**
 
 1. **Missing Environment Variables in Database Configuration**
+
    - The PostgreSQL containers in docker-compose.yml are missing `POSTGRES_PASSWORD`
    - This will cause database connection failures
 
 2. **Incorrect Docker Build Context in Dockerfiles**
+
    - API Gateway Dockerfile uses `COPY ../proto ./proto` which won't work
    - Should use `COPY ../../proto ./proto` or fix the build context
 
 3. **Missing Error Handling for Database Password**
+
    - The connection strings don't handle the missing password environment variable
 
 4. **Incomplete go.mod Files**
+
    - Missing required dependencies for some services
    - Version conflicts may occur
 
@@ -1067,48 +1071,52 @@ For production systems, consider:
 #### **Fix 1: Corrected Docker Compose Configuration**
 
 **❌ BROKEN VERSION:**
+
 ```yaml
-  users-db:
-    image: postgres:13
-    container_name: users-db
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_DB: users_db
-    # Missing POSTGRES_PASSWORD - will cause connection failures!
+users-db:
+  image: postgres:13
+  container_name: users-db
+  environment:
+    POSTGRES_USER: user
+    POSTGRES_DB: users_db
+  # Missing POSTGRES_PASSWORD - will cause connection failures!
 ```
 
 **✅ FIXED VERSION:**
+
 ```yaml
-  users-db:
-    image: postgres:13
-    container_name: users-db
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: users_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - users_data:/var/lib/postgresql/data
-    networks:
-      - microservices
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d users_db"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+users-db:
+  image: postgres:13
+  container_name: users-db
+  environment:
+    POSTGRES_USER: user
+    POSTGRES_PASSWORD: password
+    POSTGRES_DB: users_db
+  ports:
+    - "5432:5432"
+  volumes:
+    - users_data:/var/lib/postgresql/data
+  networks:
+    - microservices
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U user -d users_db"]
+    interval: 30s
+    timeout: 10s
+    retries: 3
+    start_period: 60s
 ```
 
 #### **Fix 2: Corrected API Gateway Dockerfile**
 
 **❌ BROKEN VERSION:**
+
 ```dockerfile
 # Copy proto files first
 COPY ../proto ./proto  # This path is WRONG - will fail!
 ```
 
 **✅ FIXED VERSION:**
+
 ```dockerfile
 FROM golang:1.21-alpine AS builder
 
@@ -1138,11 +1146,12 @@ CMD ["./server"]
 #### **Fix 3: Enhanced Error Handling in Services**
 
 **❌ PROBLEMATIC CODE:**
+
 ```go
 func main() {
     // Wait for database to be ready
     time.Sleep(10 * time.Second)  // Unreliable timing!
-    
+
     // Connect to database
     dsn := "host=users-db user=user password=password dbname=users_db port=5432 sslmode=disable"
     db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
@@ -1153,35 +1162,36 @@ func main() {
 ```
 
 **✅ IMPROVED VERSION:**
+
 ```go
 func main() {
     // Connect to database with retry logic
     db := connectToDatabaseWithRetry()
-    
+
     // Rest of the service setup...
 }
 
 func connectToDatabaseWithRetry() *gorm.DB {
     dsn := "host=users-db user=user password=password dbname=users_db port=5432 sslmode=disable"
-    
+
     var db *gorm.DB
     var err error
-    
+
     for i := 0; i < 30; i++ { // Retry for up to 5 minutes
         db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
         if err == nil {
             log.Println("Successfully connected to database")
             break
         }
-        
+
         log.Printf("Failed to connect to database (attempt %d/30): %v", i+1, err)
         time.Sleep(10 * time.Second)
     }
-    
+
     if err != nil {
         log.Fatalf("Could not connect to database after 30 attempts: %v", err)
     }
-    
+
     return db
 }
 ```
@@ -1189,6 +1199,7 @@ func connectToDatabaseWithRetry() *gorm.DB {
 #### **Fix 4: Missing Dependencies in go.mod Files**
 
 **❌ INCOMPLETE go.mod:**
+
 ```go
 module users-service
 
@@ -1205,6 +1216,7 @@ require (
 ```
 
 **✅ COMPLETE go.mod:**
+
 ```go
 module users-service
 
@@ -1248,6 +1260,7 @@ require (
 #### **Fix 5: Proper Build Script Error Handling**
 
 **❌ PROBLEMATIC BUILD SCRIPT:**
+
 ```bash
 # Copy proto files to each service for Docker build context
 distribute_proto_files() {
@@ -1266,6 +1279,7 @@ distribute_proto_files() {
 ```
 
 **✅ IMPROVED BUILD SCRIPT:**
+
 ```bash
 # Copy proto files to each service for Docker build context
 distribute_proto_files() {
@@ -1275,25 +1289,25 @@ distribute_proto_files() {
 
     for service in "${services[@]}"; do
         echo "  📂 Copying to $service..."
-        
+
         # Check if service directory exists
         if [ ! -d "$service" ]; then
             echo "❌ Service directory $service does not exist!"
             exit 1
         fi
-        
+
         # Create proto directory
         mkdir -p "$service/proto/gen" || {
             echo "❌ Failed to create proto directory for $service"
             exit 1
         }
-        
+
         # Copy proto files with error checking
         if ! cp -r proto/* "$service/proto/" 2>/dev/null; then
             echo "❌ Failed to copy proto files to $service"
             exit 1
         fi
-        
+
         echo "  ✅ Successfully copied proto files to $service"
     done
 
@@ -1304,6 +1318,7 @@ distribute_proto_files() {
 #### **Fix 6: Missing Health Checks and Proper Dependencies**
 
 **✅ ENHANCED DOCKER COMPOSE:**
+
 ```yaml
 services:
   consul:
@@ -1352,18 +1367,22 @@ services:
 #### **Common Errors and Solutions**
 
 1. **Error: "dial tcp: lookup users-service: no such host"**
+
    - **Cause**: Services not on same Docker network
    - **Fix**: Ensure all services use `networks: - microservices`
 
 2. **Error: "failed to connect to database"**
+
    - **Cause**: Missing POSTGRES_PASSWORD or wrong connection string
    - **Fix**: Add all required environment variables to PostgreSQL containers
 
 3. **Error: "no healthy instances of service found"**
+
    - **Cause**: Service not registered with Consul or health check failing
    - **Fix**: Check Consul UI at localhost:8500 and verify service registration
 
 4. **Error: "proto file not found during build"**
+
    - **Cause**: Incorrect COPY path in Dockerfile
    - **Fix**: Use correct relative paths based on build context
 

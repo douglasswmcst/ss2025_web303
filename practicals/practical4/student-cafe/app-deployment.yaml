@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-catalog-deployment
+  namespace: student-cafe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: food-catalog-service
+  template:
+    metadata:
+      labels:
+        app: food-catalog-service
+    spec:
+      containers:
+        - name: food-catalog-service
+          image: food-catalog-service:v1
+          imagePullPolicy: IfNotPresent # Important for local minikube images
+          ports:
+            - containerPort: 8080
+          env:
+            - name: CONSUL_HTTP_ADDR
+              value: "consul-server:8500"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-catalog-service
+  namespace: student-cafe
+spec:
+  selector:
+    app: food-catalog-service
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-deployment
+  namespace: student-cafe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: order-service:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+          env:
+            - name: CONSUL_HTTP_ADDR
+              value: "consul-server:8500"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: student-cafe
+spec:
+  selector:
+    app: order-service
+  ports:
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cafe-ui-deployment
+  namespace: student-cafe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cafe-ui
+  template:
+    metadata:
+      labels:
+        app: cafe-ui
+    spec:
+      containers:
+        - name: cafe-ui
+          image: cafe-ui:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cafe-ui-service
+  namespace: student-cafe
+spec:
+  selector:
+    app: cafe-ui
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
