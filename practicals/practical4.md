@@ -162,21 +162,11 @@ curl http://$(minikube ip):32147/api/catalog/items
 
 2. **Documentation**: Create a `README.md` file in your project root that includes:
 
-   - **Architecture Overview**: Brief description of your microservices architecture
-   - **Setup Instructions**: Step-by-step guide to run your application locally
-   - **API Endpoints**: List of available endpoints and their functionality
    - **Screenshots**: Include screenshots showing:
-     - Your React frontend displaying the food menu
-     - A successful order placement
+     - Your React frontend displaying the food menu & successful order placement
      - Kubernetes pods running (`kubectl get pods -n student-cafe`)
      - Kong services status
-   - **Challenges Faced**: Document any issues encountered and how you resolved them
-
-3. **Verification Evidence**: Include the following in your submission:
-   - Screenshot of all pods running successfully in the `student-cafe` namespace
-   - Screenshot of your React application running in the browser
-   - Terminal output showing successful order creation
-   - Output of `kubectl get services -n student-cafe` command
+     - Output of `kubectl get services -n student-cafe` command
 
 Part 2
 
