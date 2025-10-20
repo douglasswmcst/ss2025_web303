@@ -26,9 +26,9 @@ func main() {
 	r.Use(middleware.Logger)
 
 	// Menu endpoints (note: no /api prefix)
-	r.Get("/menu", handlers.GetMenu)
-	r.Post("/menu", handlers.CreateMenuItem)
-	r.Get("/menu/{id}", handlers.GetMenuItem)
+	r.Get("/menu/{id}", handlers.GetMenu)
+	r.Post("/menu", handlers.CreateMenu)
+	// r.Get("/menu/{id}", handlers.GetMenuItem)
 
 	port := os.Getenv("PORT")
 	if port == "" {

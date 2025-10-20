@@ -28,6 +28,7 @@ func main() {
 	// User endpoints
 	r.Post("/users", handlers.CreateUser)
 	r.Get("/users/{id}", handlers.GetUser)
+	r.Get("/users", handlers.GetUsers)
 
 	port := os.Getenv("PORT")
 	if port == "" {

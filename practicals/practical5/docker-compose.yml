@@ -1,16 +1,22 @@
 services:
   # Databases
-  postgres:
-    image: postgres:13
-    container_name: monolith-db
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: student_cafe
+  # postgres:
+  #   image: postgres:13
+  #   container_name: monolith-db
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: student_cafe
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+
+  consul:
+    image: hashicorp/consul:latest
     ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "8500:8500"
+    command: "agent -dev -client=0.0.0.0 -ui"
 
   menu-db:
     image: postgres:13
@@ -49,15 +55,15 @@ services:
       - order_data:/var/lib/postgresql/data
 
   # Monolith Application
-  monolith:
-    build: ./student-cafe-monolith
-    container_name: monolith
-    ports:
-      - "8090:8080"
-    depends_on:
-      - postgres
-    environment:
-      DATABASE_URL: "host=postgres user=postgres password=postgres dbname=student_cafe port=5432 sslmode=disable"
+  # monolith:
+  #   build: ./student-cafe-monolith
+  #   container_name: monolith
+  #   ports:
+  #     - "8090:8080"
+  #   depends_on:
+  #     - postgres
+  #   environment:
+  #     DATABASE_URL: "host=postgres user=postgres password=postgres dbname=student_cafe port=5432 sslmode=disable"
 
   # Microservices
   menu-service:
