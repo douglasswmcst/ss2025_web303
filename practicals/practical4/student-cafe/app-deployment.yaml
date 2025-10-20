@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: food-catalog-service
-          image: food-catalog-service:v1
+          image: food-catalog-service:v1.1
           imagePullPolicy: IfNotPresent # Important for local minikube images
           ports:
             - containerPort: 8080
@@ -53,7 +53,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: order-service:v1
+          image: order-service:v1.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
@@ -91,7 +91,7 @@ spec:
     spec:
       containers:
         - name: cafe-ui
-          image: cafe-ui:v1
+          image: cafe-ui:v1.1
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

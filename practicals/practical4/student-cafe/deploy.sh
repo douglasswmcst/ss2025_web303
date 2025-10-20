@@ -121,11 +121,11 @@ fi
 # Build Docker images
 echo "Building Docker images..."
 echo "Building food-catalog-service..."
-docker build -t food-catalog-service:v1 ./food-catalog-service
+docker build -t food-catalog-service:v1.1 ./food-catalog-service
 echo "Building order-service..."
-docker build -t order-service:v1 ./order-service
+docker build -t order-service:v1.1 ./order-service
 echo "Building cafe-ui..."
-docker build -t cafe-ui:v1 ./cafe-ui
+docker build -t cafe-ui:v1.1 ./cafe-ui
 
 # Deploy application services
 echo "Deploying application services..."

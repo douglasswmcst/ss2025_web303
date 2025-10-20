@@ -53,7 +53,7 @@ Part 1
    kubectl logs -f deployment/kong-kong -n student-cafe
 
    # Test API endpoints directly
-   curl -X POST http://$(minikube ip):32147/api/orders/orders \
+   curl -X POST http://$(minikube ip):PORT/api/orders/orders \
      -H "Content-Type: application/json" \
      -d '{"item_ids": ["1", "2"]}'
    ```

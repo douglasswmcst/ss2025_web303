@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -37,14 +36,12 @@ func registerServiceWithConsul() {
 	registration.ID = "order-service"
 	registration.Name = "order-service"
 	registration.Port = 8081
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("Could not get hostname: %v", err)
-	}
-	registration.Address = hostname
+	// Use the Kubernetes service endpoint instead of hostname
+	serviceAddress := "order-service.student-cafe.svc.cluster.local"
+	registration.Address = serviceAddress
 
 	registration.Check = &consulapi.AgentServiceCheck{
-		HTTP:     fmt.Sprintf("http://%s:%d/health", hostname, 8081),
+		HTTP:     fmt.Sprintf("http://%s:%d/health", serviceAddress, 8081),
 		Interval: "10s",
 		Timeout:  "1s",
 	}
