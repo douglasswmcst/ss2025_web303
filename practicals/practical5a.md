@@ -633,6 +633,3 @@ You now understand how to build production-grade microservices with gRPC!
 - [Go gRPC Best Practices](https://github.com/grpc/grpc-go/blob/master/Documentation/grpc-metadata.md)
 - [Microservices Communication Patterns](https://microservices.io/patterns/communication-style/messaging.html)
 
----
-
-**Congratulations!** You've successfully implemented gRPC microservices with a centralized proto repository. This pattern is production-ready and used by leading tech companies worldwide.

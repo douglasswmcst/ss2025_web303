@@ -761,43 +761,6 @@ nginx:
 
 ---
 
-## Submission Requirements
-
-### Required Deliverables
-
-1. **Source Code**:
-   - Updated api-gateway with gRPC clients
-   - Simplified service main.go files
-   - Updated docker-compose.yml
-   - All handler files
-
-2. **Documentation**:
-   - This README with your observations
-   - Screenshots showing:
-     - `docker-compose ps` (only gRPC ports for services)
-     - Successful order creation via HTTP
-     - Gateway logs showing gRPC client initialization
-     - Failed attempt to curl gRPC ports directly
-
-3. **Reflection Essay (750 words minimum)**:
-   - Explain the HTTP → gRPC translation process
-   - Compare service complexity before/after
-   - Discuss when to use this architecture pattern
-   - Analyze the trade-offs of protocol translation
-   - How would you extend this for real-time features?
-
-### Grading Criteria
-
-| Criteria | Weight |
-|----------|--------|
-| Gateway gRPC client implementation | 30% |
-| HTTP → gRPC translation handlers | 25% |
-| Service simplification (removed HTTP) | 20% |
-| Docker configuration correctness | 10% |
-| Documentation and reflection | 15% |
-
----
-
 ## Conclusion
 
 Congratulations! You've completed the full microservices gRPC migration:
@@ -811,10 +774,6 @@ You now understand:
 - gRPC client/server architecture
 - Service simplification strategies
 - Production-grade microservices communication
-
-This pattern is used by **Google, Netflix, Uber, Slack** and countless other companies at scale.
-
-**You're now equipped to build production-ready gRPC microservices!**
 
 ---
 
