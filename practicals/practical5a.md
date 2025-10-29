@@ -369,12 +369,12 @@ The script:
 cd student-cafe-protos && make generate && cd ..
 
 # Build and start
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # Verify
-docker-compose ps
-docker-compose logs -f order-service
+docker compose ps
+docker compose logs -f order-service
 ```
 
 ## Testing & Verification

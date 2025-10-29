@@ -38,13 +38,13 @@ echo ""
 # Step 3: Build Docker images
 echo -e "${BLUE}Step 3: Building Docker images${NC}"
 echo "This may take a few minutes..."
-docker compose build --no-cache
+docker-compose build --no-cache
 echo -e "${GREEN}✓ Docker images built successfully${NC}"
 echo ""
 
 # Step 4: Start services
 echo -e "${BLUE}Step 4: Starting all services${NC}"
-docker compose up -d
+docker-compose up -d
 echo -e "${GREEN}✓ All services started${NC}"
 echo ""
 
@@ -57,7 +57,7 @@ echo ""
 
 # Step 6: Check service health
 echo -e "${BLUE}Step 6: Checking service health${NC}"
-docker compose ps
+docker-compose ps
 echo ""
 
 # Step 7: Display access information
