@@ -40,7 +40,7 @@ type MenuItem struct {
 	ID          uint    `json:"id"`
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
-	Price       float32 `json:"price"`
+	Price       float64 `json:"price"`
 	CreatedAt   string  `json:"created_at"`
 	UpdatedAt   string  `json:"updated_at"`
 }
@@ -50,7 +50,7 @@ type OrderItem struct {
 	OrderID    uint    `json:"order_id"`
 	MenuItemID uint    `json:"menu_item_id"`
 	Quantity   int     `json:"quantity"`
-	Price      float32 `json:"price"`
+	Price      float64 `json:"price"`
 	CreatedAt  string  `json:"created_at"`
 	UpdatedAt  string  `json:"updated_at"`
 }
