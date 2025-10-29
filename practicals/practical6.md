@@ -3,6 +3,7 @@
 ## Objective
 
 Building on Practical 5A, this practical teaches you how to:
+
 1. Implement **unit tests** for individual gRPC service methods
 2. Create **integration tests** that test multiple services working together
 3. Develop **end-to-end (E2E) tests** that validate the entire system through the API
@@ -13,7 +14,7 @@ Building on Practical 5A, this practical teaches you how to:
 
 ### The Testing Pyramid
 
-```
+```GUI (Manual Testing)
        /\
       /  \     E2E Tests (Few, Slow, Expensive)
      /----\
@@ -24,18 +25,21 @@ Building on Practical 5A, this practical teaches you how to:
 ```
 
 **Unit Tests** (70%):
+
 - Test individual functions/methods in isolation
 - Fast execution (milliseconds)
 - Easy to debug
 - Should be the majority of your tests
 
 **Integration Tests** (20%):
+
 - Test multiple components working together
 - Medium speed (seconds)
 - Verify service interactions
 - Test without external dependencies (use in-memory databases)
 
 **End-to-End Tests** (10%):
+
 - Test the entire system as a user would
 - Slow execution (seconds to minutes)
 - Validate real-world scenarios
@@ -87,6 +91,12 @@ practical6-example/
 └── docker-compose.yml
 ```
 
+## Testing Framework Used
+
+Testify for Golang
+
+`https://github.com/stretchr/testify`
+
 ## Phase 1: Unit Testing
 
 Unit tests verify individual functions work correctly in isolation.
@@ -98,6 +108,7 @@ Unit tests verify individual functions work correctly in isolation.
 #### Key Testing Concepts
 
 **Test Setup and Teardown**:
+
 ```go
 func setupTestDB(t *testing.T) *gorm.DB {
     // Create in-memory SQLite database
@@ -119,12 +130,14 @@ func teardownTestDB(t *testing.T, db *gorm.DB) {
 ```
 
 **Why SQLite?**
+
 - In-memory database is fast (no disk I/O)
 - No external dependencies needed
 - Same SQL interface as PostgreSQL for basic operations
 - Perfect for unit tests
 
 **Test Structure - Table-Driven Tests**:
+
 ```go
 func TestCreateUser(t *testing.T) {
     // Setup
@@ -180,6 +193,7 @@ func TestCreateUser(t *testing.T) {
 ```
 
 **Benefits of Table-Driven Tests**:
+
 - Easy to add new test cases
 - DRY (Don't Repeat Yourself)
 - Clear test documentation
@@ -229,6 +243,7 @@ func TestGetUser(t *testing.T) {
 ```
 
 **Common gRPC Error Codes**:
+
 - `codes.NotFound`: Resource doesn't exist (404)
 - `codes.InvalidArgument`: Bad request (400)
 - `codes.Internal`: Server error (500)
@@ -301,6 +316,7 @@ func TestPriceHandling(t *testing.T) {
 ```
 
 **Why `InDelta`?**
+
 - Floating point arithmetic isn't exact
 - `assert.Equal(3.14, 3.14)` might fail due to precision
 - `assert.InDelta(3.14, 3.14, 0.001)` allows tiny differences
@@ -391,6 +407,7 @@ func TestCreateOrder_Success(t *testing.T) {
 ```
 
 **Why Mocks?**
+
 - **Isolation**: Test order service without starting user/menu services
 - **Speed**: No network calls, instant responses
 - **Control**: Simulate any scenario (success, failure, edge cases)
@@ -438,6 +455,7 @@ make test-coverage
 ```
 
 Expected output:
+
 ```
 === User Service Unit Tests ===
 === RUN   TestCreateUser
@@ -498,6 +516,7 @@ func setupUserService(t *testing.T) {
 ```
 
 **What is bufconn?**
+
 - In-memory gRPC connection (no TCP/sockets)
 - Faster than real network
 - No port conflicts
@@ -622,6 +641,7 @@ func TestIntegration_CompleteOrderFlow(t *testing.T) {
 ```
 
 **What This Tests**:
+
 1. User creation via user service
 2. Menu item creation via menu service
 3. Order creation with validation (user exists, menu items exist)
@@ -714,6 +734,7 @@ func TestIntegration_ConcurrentOrders(t *testing.T) {
 ```
 
 **What This Tests**:
+
 - Thread safety / concurrent access
 - Database transaction handling
 - No race conditions
@@ -726,6 +747,7 @@ make test-integration
 ```
 
 Expected output:
+
 ```
 === RUN   TestIntegration_CreateUser
 --- PASS: TestIntegration_CreateUser (0.02s)
@@ -884,6 +906,7 @@ func TestE2E_CompleteOrderFlow(t *testing.T) {
 ```
 
 **What This Tests**:
+
 - HTTP API endpoints work correctly
 - API Gateway routes requests properly
 - Protocol translation (HTTP → gRPC → HTTP) works
@@ -929,6 +952,7 @@ make test-e2e-docker  # Starts services, runs tests, stops services
 ```
 
 Expected output:
+
 ```
 === RUN   TestE2E_CompleteOrderFlow
 --- PASS: TestE2E_CompleteOrderFlow (0.15s)
@@ -983,16 +1007,19 @@ make test-coverage
 ```
 
 This generates HTML coverage reports:
+
 - `user-service/coverage.html`
 - `menu-service/coverage.html`
 - `order-service/coverage.html`
 
 Open in browser to see line-by-line coverage:
+
 ```bash
 open user-service/coverage.html
 ```
 
 **Coverage Goals**:
+
 - Unit tests: Aim for 80%+ coverage
 - Critical paths: 100% coverage
 - Error handling: Test all error cases
@@ -1002,6 +1029,7 @@ open user-service/coverage.html
 ### 1. Test Independence
 
 **Good**:
+
 ```go
 func TestCreateUser(t *testing.T) {
     db := setupTestDB(t)  // ← Fresh database
@@ -1011,6 +1039,7 @@ func TestCreateUser(t *testing.T) {
 ```
 
 **Bad**:
+
 ```go
 var sharedDB *gorm.DB  // ← Shared state
 
@@ -1024,6 +1053,7 @@ func TestCreateUser(t *testing.T) {
 ### 2. Use Table-Driven Tests
 
 **Good**:
+
 ```go
 tests := []struct {
     name    string
@@ -1047,6 +1077,7 @@ for _, tt := range tests {
 ### 3. Test Error Cases
 
 **Don't just test happy paths**:
+
 ```go
 func TestCreateOrder(t *testing.T) {
     // Test success
@@ -1062,11 +1093,13 @@ func TestCreateOrder(t *testing.T) {
 ### 4. Use Descriptive Test Names
 
 **Good**:
+
 ```go
 func TestCreateUser_DuplicateEmail_ReturnsConflictError(t *testing.T)
 ```
 
 **Bad**:
+
 ```go
 func TestUser(t *testing.T)
 ```
@@ -1074,12 +1107,14 @@ func TestUser(t *testing.T)
 ### 5. Assert Clearly
 
 **Good**:
+
 ```go
 require.NoError(t, err, "Failed to create user")
 assert.Equal(t, "John", user.Name, "User name should match request")
 ```
 
 **Bad**:
+
 ```go
 if err != nil || user.Name != "John" {
     t.Fail()  // ← What failed?
@@ -1089,12 +1124,14 @@ if err != nil || user.Name != "John" {
 ### 6. Test One Thing Per Test
 
 **Good**:
+
 ```go
 func TestGetUser_ExistingUser_ReturnsUser(t *testing.T) { /* ... */ }
 func TestGetUser_NonExistentUser_ReturnsNotFound(t *testing.T) { /* ... */ }
 ```
 
 **Bad**:
+
 ```go
 func TestGetUser(t *testing.T) {
     // Tests 5 different scenarios in one function
@@ -1120,7 +1157,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.23'
+          go-version: "1.23"
 
       - name: Install dependencies
         run: make install-deps
@@ -1151,6 +1188,7 @@ jobs:
 ### Issue 1: Tests Fail with "module not found"
 
 **Solution**:
+
 ```bash
 make install-deps
 ```
@@ -1160,6 +1198,7 @@ make install-deps
 **Cause**: Services not ready
 
 **Solution**:
+
 ```bash
 # Check services are running
 docker compose ps
@@ -1175,6 +1214,7 @@ make test-e2e
 ### Issue 3: Port Already in Use
 
 **Solution**:
+
 ```bash
 # Stop existing services
 make docker-down
@@ -1189,6 +1229,7 @@ make docker-up
 ### Issue 4: Coverage Report Empty
 
 **Solution**:
+
 ```bash
 # Ensure test files are in same package as code
 # user-service/grpc/server.go
@@ -1208,14 +1249,14 @@ cd user-service && go test -v -coverprofile=coverage.out ./grpc/...
 
 ### 2. Test Types Comparison
 
-| Aspect | Unit | Integration | E2E |
-|--------|------|-------------|-----|
-| Speed | Milliseconds | Seconds | Minutes |
-| Scope | Single function | Multiple services | Entire system |
-| Isolation | Complete | Partial | None |
-| Debugging | Easy | Medium | Hard |
-| Cost | Low | Medium | High |
-| Confidence | Low | Medium | High |
+| Aspect     | Unit            | Integration       | E2E           |
+| ---------- | --------------- | ----------------- | ------------- |
+| Speed      | Milliseconds    | Seconds           | Minutes       |
+| Scope      | Single function | Multiple services | Entire system |
+| Isolation  | Complete        | Partial           | None          |
+| Debugging  | Easy            | Medium            | Hard          |
+| Cost       | Low             | Medium            | High          |
+| Confidence | Low             | Medium            | High          |
 
 ### 3. Mocking Strategy
 
@@ -1231,18 +1272,21 @@ cd user-service && go test -v -coverprofile=coverage.out ./grpc/...
 ### 5. When to Write Each Test Type
 
 **Unit Test** when:
+
 - Testing business logic
 - Testing error handling
 - Testing edge cases
 - Fast feedback needed
 
 **Integration Test** when:
+
 - Testing service interactions
 - Testing protocol translation
 - Testing data flow
 - Verifying contracts
 
 **E2E Test** when:
+
 - Testing critical user journeys
 - Validating deployment
 - Testing API contracts
@@ -1317,18 +1361,21 @@ make ci-full
 ### For This Practical
 
 1. **Run all tests**:
+
    ```bash
    make dev-setup      # One-time setup
    make test-all       # Run everything
    ```
 
 2. **Generate coverage report**:
+
    ```bash
    make test-coverage
    open */coverage.html
    ```
 
 3. **Experiment with failures**:
+
    - Break a test intentionally
    - See how it fails
    - Fix it
@@ -1341,16 +1388,19 @@ make ci-full
 ### For Production Systems
 
 1. **Add more test types**:
+
    - Performance tests (load testing with k6)
    - Security tests (SQL injection, XSS)
    - Chaos engineering (kill random services)
 
 2. **Improve coverage**:
+
    - Aim for 80%+ code coverage
    - Focus on critical paths first
    - Test all error conditions
 
 3. **Automate everything**:
+
    - Run tests on every commit
    - Block PRs if tests fail
    - Deploy automatically if tests pass
@@ -1359,6 +1409,21 @@ make ci-full
    - Track test execution time
    - Fix flaky tests immediately
    - Remove obsolete tests
+
+## Submission Requirements
+
+- Submit your updated repository with all tests implemented
+- Currently the tests are able to complete successfully with the unit tests
+- Integration and E2E tests should also pass if the services are running correctly. However, both are failing due to issues with go.sum imports which has been defined in the Dockerfile for each service.
+
+Task
+- Ensure that the setup of integration and e2e are working and pass successfully
+
+Files to Submit
+- All test files under `tests/integration/` and `tests/e2e/`
+- Any updates to service code required to make tests pass
+- Screenshot of test results showing all tests passing in the terminal
+
 
 ## Conclusion
 
@@ -1372,6 +1437,7 @@ You now understand:
 6. **CI/CD**: Integrating tests into deployment pipelines
 
 Testing is not optional—it's essential for:
+
 - **Confidence**: Deploy without fear
 - **Quality**: Catch bugs early
 - **Documentation**: Tests show how code should work
