@@ -1414,7 +1414,9 @@ make ci-full
 
 - Submit your updated repository with all tests implemented
 - Currently the tests are able to complete successfully with the unit tests
-- Integration and E2E tests should also pass if the services are running correctly. However, both are failing due to issues with go.sum imports which has been defined in the Dockerfile for each service.
+- Integration and E2E tests should also pass if the services are running correctly. 
+- Both are not implemented fully yet.
+However, both are failing due to issues with go.sum imports which has been defined in the Dockerfile for each service.
 
 Task
 - Ensure that the setup of integration and e2e are working and pass successfully
